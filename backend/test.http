@@ -1,0 +1,10 @@
+GET http://localhost:3000/books
+
+###
+
+POST http://localhost:3000/books/978-0060850524/buy
+Content-Type: application/json
+
+{
+  "address": "0xd1f5B9Dc9F5d55523aB25839f8785aaC74EDE98F"
+}

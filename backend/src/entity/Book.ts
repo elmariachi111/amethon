@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryColumn } from "typeorm";
+import { Entity, Column, PrimaryColumn, OneToMany } from "typeorm";
+import { PaymentRequest } from "./PaymentRequest";
 
 @Entity()
 export class Book {
@@ -9,5 +10,11 @@ export class Book {
   title: string;
 
   @Column()
-  price: string;
+  priceInUSD: string;
+
+  @OneToMany(
+    () => PaymentRequest,
+    (paymentRequest: PaymentRequest) => paymentRequest.book
+  )
+  payments: PaymentRequest[];
 }
