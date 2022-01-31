@@ -1,0 +1,9 @@
+{
+  "name": "@books/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {},
+  "devDependencies": {
+    "truffle": "^5.4.31"
+  }
+}
