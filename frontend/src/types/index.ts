@@ -1,3 +1,5 @@
+import { Contract } from "web3-eth-contract";
+
 export interface Book {
   ISBN: string;
   title: string;
@@ -6,10 +8,14 @@ export interface Book {
 
 export interface PaymentRequest {
   id: number;
-  idUint256?: string;
   book: Book;
   address: string;
   priceInUSDCent: number;
   fulfilledHash: string | null;
   paidUSDCent: number | null;
+}
+
+export interface PayablePaymentRequest extends PaymentRequest {
+  idUint256: string;
+  receiver: Contract;
 }

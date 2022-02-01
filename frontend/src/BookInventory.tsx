@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { BookView } from './components/BookView';
 import { Book } from './types';
 
-
 export const BookInventory = () => {
   
   const [books, setBooks] = useState<Book[]>([]);

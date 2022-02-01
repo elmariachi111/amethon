@@ -27,6 +27,30 @@ interface BuyBookRequest extends Request {
   };
 }
 
+app.get(
+  "/books/:isbn/payments/:address",
+  async (req: Request, res: Response) => {
+    const paymentRequest = await getRepository(PaymentRequest).findOne({
+      where: {
+        book: { ISBN: req.params.isbn },
+        address: req.params.address,
+      },
+      relations: ["book"],
+    });
+    if (!paymentRequest)
+      return res
+        .status(404)
+        .send(`no payment by ${req.params.address} for that book`);
+
+    return res
+      .status(200)
+      .json({
+        paymentRequest,
+        receiver: process.env.PAYMENT_RECEIVER_CONTRACT as string,
+      });
+  }
+);
+
 app.post("/books/:isbn/order", async (req: BuyBookRequest, res: Response) => {
   const book = await getRepository(Book).findOne(req.params.isbn);
   if (!book) {

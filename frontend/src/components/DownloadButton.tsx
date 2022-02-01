@@ -2,12 +2,12 @@ import { useWeb3React } from '@web3-react/core';
 import axios from 'axios';
 import React from 'react';
 import { default as Web3 } from "web3";
-import { Book } from "../types";
+import { PaymentRequest } from "../types";
 
-
-export const DownloadButton = (props: {book: Book}) => {
+export const DownloadButton = (props: {paymentRequest: PaymentRequest}) => {
   const {account, library: web3} = useWeb3React<Web3>();
-  const {book} = props;
+  const {paymentRequest} = props;
+  const {book} = paymentRequest;
 
   const download = async () => {
     if (!web3 || !account) return;
@@ -29,5 +29,8 @@ export const DownloadButton = (props: {book: Book}) => {
     link.click();
   }
 
-  return <button className="btn-primary" disabled={!web3} onClick={() => download()}>Download</button>
+  return <div>
+      <button className="btn-primary" disabled={!web3} onClick={() => download()}>Download</button>
+      <div className="text-ellipsis overflow-hidden">{paymentRequest.fulfilledHash}</div>
+    </div>
 }

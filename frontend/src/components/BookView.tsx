@@ -1,11 +1,13 @@
 import { useWeb3React } from '@web3-react/core';
 import axios from 'axios';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Web3 from 'web3';
-import { Contract } from 'web3-eth-contract';
+import { TransactionReceipt } from 'web3-core';
 import { AbiItem } from 'web3-utils';
 import receiverAbi from '../abi/PaymentReceiver.json';
-import { Book, PaymentRequest } from '../types';
+import { isFulfilled } from '../modules';
+import { Book, PayablePaymentRequest, PaymentRequest } from '../types';
+import { DownloadButton } from './DownloadButton';
 import { PayButton } from './PayButton';
 
 
@@ -13,8 +15,16 @@ export const BookView = (props: {book: Book}) => {
   const {book} = props;
   const {account, library: web3} = useWeb3React<Web3>();
 
-  const [paymentRequest, setPaymentRequest] = useState<PaymentRequest>();
-  const [receiver, setReceiver] = useState<Contract>()
+  const [paymentRequest, setPaymentRequest] = useState<PayablePaymentRequest>();
+  const [receipt, setReceipt] = useState<TransactionReceipt>();
+  
+  const handlePaymentResponse = (web3: Web3, resp:{paymentRequest: PaymentRequest, receiver: string} ) => {
+    setPaymentRequest({
+      ...resp.paymentRequest,
+      idUint256: web3.eth.abi.encodeParameter("uint256", resp.paymentRequest.id),
+      receiver: new web3.eth.Contract(receiverAbi as AbiItem[], resp.receiver)
+    });
+  }
 
   const initPayment = async () => {
     if (!web3) return;
@@ -22,15 +32,21 @@ export const BookView = (props: {book: Book}) => {
     const resp = (await axios.post<{paymentRequest: PaymentRequest, receiver: string}>(url, {
       address: account
     })).data;
-
-    setPaymentRequest({
-      ...resp.paymentRequest,
-      idUint256: web3.eth.abi.encodeParameter("uint256", resp.paymentRequest.id)
-    });
-
-    const receiverContract = new web3.eth.Contract(receiverAbi as AbiItem[], resp.receiver);
-    setReceiver(receiverContract);
+    handlePaymentResponse(web3, resp) 
   }
+
+  useEffect(() => {
+    if (!account || !web3) return;
+    (async() => {
+      const url = `${process.env.REACT_APP_BOOK_SERVER}/books/${book.ISBN}/payments/${account}`;
+      try {
+        const resp = await (await axios.get<{paymentRequest: PaymentRequest, receiver: string}>(url)).data;
+        handlePaymentResponse(web3, resp);
+      } catch(e: any) {
+        console.log(e.message);
+      }
+    })();
+  }, [account, web3, receipt]);
 
   return (
     <div className="grid grid-cols-3 gap-4 items-center p-4">
@@ -40,8 +56,11 @@ export const BookView = (props: {book: Book}) => {
       <span className="">
         USD {(book.retailUSDCent / 100).toFixed(2)}
       </span>
-      {(paymentRequest && receiver) 
-       ? <PayButton paymentRequest={paymentRequest} receiver={receiver} />
+
+      {(paymentRequest) 
+       ? isFulfilled(paymentRequest) 
+          ? <DownloadButton paymentRequest={paymentRequest}  />
+          : <PayButton paymentRequest={paymentRequest} onConfirmed={setReceipt}/>
        : <button className="btn-primary" disabled={!account} onClick={() => initPayment()}>buy</button>
       }
     </div>
