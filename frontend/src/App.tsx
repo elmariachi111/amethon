@@ -13,7 +13,7 @@ function App() {
   
   return (
     <Web3ReactProvider getLibrary={getWeb3Library}>
-     <ConnectButton />
+      <ConnectButton />
       <BookInventory />
     </Web3ReactProvider>
     

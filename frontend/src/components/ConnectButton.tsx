@@ -7,7 +7,6 @@ export const injectedConnector = new InjectedConnector({
   supportedChainIds: [1, 4, 42, 1337, 31337]
 });
 
-
 export const ConnectButton = () => {
   const { activate, account, active, library: web3 } = useWeb3React<Web3>();
 
@@ -15,5 +14,5 @@ export const ConnectButton = () => {
      activate(injectedConnector, console.error);
   }
 
-  return (active ? <div>Connected: {account}</div> : <button className="btn-primary" onClick={connect}>Connect</button>)
+  return (active ? <div className="p-2 font-semibold">Hello, {account}</div> : <button className="btn-primary" onClick={connect}>Connect</button>)
 };
