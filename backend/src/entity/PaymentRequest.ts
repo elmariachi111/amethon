@@ -12,11 +12,14 @@ export class PaymentRequest {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  fulfilled: boolean;
+  @Column("varchar", { nullable: true })
+  fulfilledHash: string | null;
 
   @Column()
   address: string;
+
+  @Column()
+  priceInUSDCent: number;
 
   @ManyToOne(() => Book, (book) => book.payments)
   book: Book;

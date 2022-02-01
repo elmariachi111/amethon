@@ -10,7 +10,7 @@ export class Book {
   title: string;
 
   @Column()
-  priceInUSD: string;
+  retailUSDCent: number;
 
   @OneToMany(
     () => PaymentRequest,

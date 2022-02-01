@@ -5,20 +5,19 @@ const BOOKS = [
   {
     isbn: "979-8749522310",
     title: "Alice in Wonderland",
-    priceEth: "",
-    priceUSD: "597",
+    priceUSDCent: 597,
   },
   {
     isbn: "978-0345806789",
     title: "The Shining",
     priceEth: "",
-    priceUSD: "999",
+    priceUSDCent: 999,
   },
   {
     isbn: "978-0060850524",
     title: "Brave New World",
     priceEth: "",
-    priceUSD: "1034",
+    priceUSDCent: 1034,
   },
 ];
 
@@ -35,7 +34,7 @@ const BOOKS = [
     const book = new Book();
     book.ISBN = _book.isbn;
     book.title = _book.title;
-    book.priceInUSD = _book.priceUSD;
+    book.retailUSDCent = _book.priceUSDCent;
     book.payments = [];
     await bookRepo.save(book);
   }

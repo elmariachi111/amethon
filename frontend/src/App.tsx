@@ -17,6 +17,7 @@ function App() {
   useEffect(() => {
     if (!provider) return;
     provider.getBlockNumber().then(console.log)
+    //web3.eth.abi.encodeParameter('uint256', '8')
   }, [provider]);
   
   return (
