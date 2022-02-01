@@ -46,12 +46,28 @@ app.post("/books/:isbn/order", async (req: BuyBookRequest, res: Response) => {
   });
 });
 
-app.get("/books/:address", async (req: Request, res: Response) => {
-  res.send("Foo");
-});
+interface DownloadBookRequest extends Request {
+  body: {
+    address: string;
+    nonce: string;
+    signature: string;
+  };
+}
 
-app.get("/books/:isbn/download", async (req: Request, res: Response) => {
-  res.send("Foo");
-});
+app.post(
+  "/books/:isbn/download",
+  async (req: DownloadBookRequest, res: Response) => {
+    //todo verify post body signature for address
+    const paymentRequest = await getRepository(PaymentRequest).findOne({
+      where: {
+        book: { ISBN: req.params.isbn },
+        address: req.body.address,
+      },
+      relations: ["book"],
+    });
+
+    res.json({ payment: paymentRequest, content: "the content..." });
+  }
+);
 
 export default app;

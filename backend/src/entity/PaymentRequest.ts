@@ -21,6 +21,9 @@ export class PaymentRequest {
   @Column()
   priceInUSDCent: number;
 
+  @Column("mediumint", { nullable: true })
+  paidUSDCent: number;
+
   @ManyToOne(() => Book, (book) => book.payments)
   book: Book;
 }

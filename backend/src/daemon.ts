@@ -47,6 +47,7 @@ interface PaymentReceivedEvent {
       if (ethValInUSDCents < payment.priceInUSDCent) {
         return console.error(`payment [${paymentId}] not sufficient`);
       }
+      payment.paidUSDCent = ethValInUSDCents;
     }
 
     payment.fulfilledHash = event.transactionHash;
