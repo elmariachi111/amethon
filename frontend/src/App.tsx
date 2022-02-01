@@ -1,37 +1,22 @@
-import React, { useEffect } from 'react';
-import logo from './logo.svg';
-import './App.css';
-import { hooks, metaMask } from './connectors/metamask';
+import { Web3ReactProvider } from '@web3-react/core';
+import React from 'react';
+import Web3 from 'web3';
+import { BookInventory } from './BookInventory';
+import { ConnectButton } from './components/ConnectButton';
 
-const { useChainId, useAccounts, useError, useIsActivating, useIsActive, useProvider, useENSNames } = hooks
+
+function getWeb3Library(provider: any) {
+  return new Web3(provider);
+}
 
 function App() {
-
-  const provider = useProvider(4);
-
-  const connect = () => {
-    metaMask.activate(4);
-
-  }
-
-  useEffect(() => {
-    if (!provider) return;
-    provider.getBlockNumber().then(console.log)
-    //web3.eth.abi.encodeParameter('uint256', '8')
-  }, [provider]);
   
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        
-        <button onClick={() => connect()}>activate</button>
-        <p></p>
-      </header>
-    </div>
+    <Web3ReactProvider getLibrary={getWeb3Library}>
+     <ConnectButton />
+      <BookInventory />
+    </Web3ReactProvider>
+    
   );
 }
 

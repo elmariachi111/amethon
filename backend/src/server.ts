@@ -3,6 +3,7 @@ import express, { Express, Request, Response } from "express";
 import { getRepository } from "typeorm";
 import { Book } from "./entity/Book";
 import { PaymentRequest } from "./entity/PaymentRequest";
+import { default as Web3 } from "web3";
 
 const app: Express = express();
 
@@ -12,6 +13,8 @@ app.use(express.urlencoded({ extended: true }));
 app.set("trust proxy", 1); // trust first proxy
 
 app.use(cors());
+
+const web3 = new Web3(process.env.PROVIDER_RPC as string);
 
 app.get("/books", async (req: Request, res: Response) => {
   const books = await getRepository(Book).find();
@@ -57,16 +60,40 @@ interface DownloadBookRequest extends Request {
 app.post(
   "/books/:isbn/download",
   async (req: DownloadBookRequest, res: Response) => {
-    //todo verify post body signature for address
+    const { signature, address, nonce } = req.body;
+
+    const signedMessage = Web3.utils.keccak256(
+      `${address}${req.params.isbn}${nonce}`
+    );
+
+    const signingAccount = await web3.eth.accounts.recover(
+      signedMessage,
+      signature,
+      false
+    );
+
+    if (signingAccount !== address) {
+      return res.status(401).json({ error: "not signed by address" });
+    }
+
     const paymentRequest = await getRepository(PaymentRequest).findOne({
       where: {
         book: { ISBN: req.params.isbn },
-        address: req.body.address,
+        address,
       },
       relations: ["book"],
     });
 
-    res.json({ payment: paymentRequest, content: "the content..." });
+    if (!paymentRequest) {
+      return res.status(404).json({ error: "payment transaction not found" });
+    }
+    res.set("Content-Type", "text/plain");
+    res.set(
+      "Content-Disposition",
+      `attachment; filename=${paymentRequest.book.title}.txt`
+    );
+
+    res.end(Buffer.from("the books content", "utf-8"));
   }
 );
 

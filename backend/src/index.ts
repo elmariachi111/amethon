@@ -11,7 +11,7 @@ createConnection({
 });
 
 // Start the application by listening to specific port
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3001);
 app.listen(port, () => {
   console.log(`Book server listening at http://localhost:${port}`);
 });
