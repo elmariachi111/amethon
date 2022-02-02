@@ -10,7 +10,6 @@ import { Book, PayablePaymentRequest, PaymentRequest } from '../types';
 import { DownloadButton } from './DownloadButton';
 import { PaymentOptions } from './PaymentOptions';
 
-
 export const BookView = (props: {book: Book}) => {
   const {book} = props;
   const {account, library: web3} = useWeb3React<Web3>();
@@ -43,7 +42,7 @@ export const BookView = (props: {book: Book}) => {
         const resp = await (await axios.get<{paymentRequest: PaymentRequest, receiver: string}>(url)).data;
         handlePaymentResponse(web3, resp);
       } catch(e: any) {
-        console.log(e.message);
+        console.error(e.message);
       }
     })();
   }, [account, web3, receipt]);

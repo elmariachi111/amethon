@@ -4,9 +4,11 @@
   "private": true,
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.2",
-    "@truffle/hdwallet-provider": "2.0.0"
+    "@truffle/hdwallet-provider": "2.0.0",
+    "dotenv-flow": "^3.2.0"
   },
   "devDependencies": {
-    "truffle": "5.4.29"
+    "truffle": "5.4.29",
+    "truffle-plugin-verify": "^0.5.21"
   }
 }
