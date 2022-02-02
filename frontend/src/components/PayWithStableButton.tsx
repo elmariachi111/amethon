@@ -57,9 +57,11 @@ export const PayWithStableButton = (props: {
     onConfirmed(tx);
   }, [web3, account]);
 
-  return (<div>
+  return (<div className="flex">
   {allowance?.lt(weiPrice) 
-    ? <button className="btn-primary" onClick={() => approve(weiPrice)}>Approve DAI</button>
+    ? <button className="btn-primary" onClick={() => approve(weiPrice)}>
+        Approve DAI
+      </button>
     : <button className="btn-primary" onClick={() => pay()}>
         Pay {Web3.utils.fromWei(weiPrice, "ether")} DAI 
       </button>

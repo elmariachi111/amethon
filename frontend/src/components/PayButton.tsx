@@ -29,7 +29,7 @@ export const PayButton = (props: {
 
   return (
    <button className="btn-primary" onClick={() => pay()}>
-     Pay {parseFloat(Web3.utils.fromWei(weiPrice, "ether")).toFixed(5)} Eth 
+     Pay {parseFloat(Web3.utils.fromWei(weiPrice, "ether")).toFixed(5)}E 
     </button>
   )
 }

@@ -29,8 +29,8 @@ export const DownloadButton = (props: {paymentRequest: PaymentRequest}) => {
     link.click();
   }
 
-  return <div>
+  return <div className="flex flex-col">
       <button className="btn-primary" disabled={!web3} onClick={() => download()}>Download</button>
-      <div className="text-ellipsis overflow-hidden">{paymentRequest.fulfilledHash}</div>
+      <div className="text-ellipsis overflow-hidden text-xs pt-1">{paymentRequest.fulfilledHash}</div>
     </div>
 }

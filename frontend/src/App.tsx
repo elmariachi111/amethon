@@ -13,8 +13,12 @@ function App() {
   
   return (
     <Web3ReactProvider getLibrary={getWeb3Library}>
-      <ConnectButton />
-      <BookInventory />
+      <div className="container mx-auto px-4 my-6">
+        <h1 className="text-2xl font-bold mb-6">amethon :)</h1>
+        <ConnectButton />  
+        <BookInventory />
+        <div className="text-xs">receiver address: {process.env.REACT_APP_RECEIVER}</div>
+      </div>
     </Web3ReactProvider>
     
   );

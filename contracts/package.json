@@ -7,6 +7,6 @@
     "@truffle/hdwallet-provider": "2.0.0"
   },
   "devDependencies": {
-    "truffle": "^5.4.31"
+    "truffle": "5.4.29"
   }
 }

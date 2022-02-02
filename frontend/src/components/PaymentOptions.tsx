@@ -12,9 +12,13 @@ export const PaymentOptions = (props: {
   const {paymentRequest, onConfirmed} = props;
   
   return (
-  <div className="flex flex-row items-center gap-3">
-    <PayButton paymentRequest={paymentRequest} onConfirmed={onConfirmed}/>
-    <PayWithStableButton paymentRequest={paymentRequest} onConfirmed={onConfirmed} />
-  </div>
+    <div className="flex flex-col">
+      <div className="flex flex-row gap-3">
+        <PayButton paymentRequest={paymentRequest} onConfirmed={onConfirmed}/>
+        <PayWithStableButton paymentRequest={paymentRequest} onConfirmed={onConfirmed} />
+        </div>
+      <div className="text-xs truncate">payment reference: <br /> {paymentRequest.idUint256}</div>
+    </div>
+  
   )
 }

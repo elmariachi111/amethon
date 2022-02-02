@@ -14,5 +14,7 @@ export const ConnectButton = () => {
      activate(injectedConnector, console.error);
   }
 
-  return (active ? <div className="p-2 font-semibold">Hello, {account}</div> : <button className="btn-primary" onClick={connect}>Connect</button>)
+  return (active
+     ? <div className="text-sm">connected as:  {account}</div> 
+     : <button className="btn-primary" onClick={connect}>Connect</button>)
 };

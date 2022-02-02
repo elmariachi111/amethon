@@ -49,11 +49,15 @@ export const BookView = (props: {book: Book}) => {
   }, [account, web3, receipt]);
 
   return (
-    <div className="grid grid-cols-4 gap-4 items-center p-4">
-      <h2 className="text-lg">
-        {book.title}
-      </h2>
-      <span className="">
+    <div className="grid grid-cols-3 gap-4 items-center my-6">
+      <div>
+        <h2 className="text-lg">
+          {book.title}
+        </h2>
+        <span className="text-sm">{book.ISBN}</span>
+      </div>
+      
+      <span className="text-lg">
         USD {(book.retailUSDCent / 100).toFixed(2)}
       </span>
 
