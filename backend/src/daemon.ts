@@ -9,7 +9,7 @@ dotenv.config();
 const web3 = new Web3(process.env.PROVIDER_RPC as string);
 const ETH_USD_CENT = 2_200 * 100;
 
-const ACCEPTED_USD_TOKENS = [];
+const ACCEPTED_USD_TOKENS = (process.env.STABLECOINS as string).split(",");
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
 interface PaymentReceivedEvent {
@@ -42,14 +42,21 @@ interface PaymentReceivedEvent {
       return console.error(`payment [${paymentId}] not found`);
     }
     const decimalValue = web3.utils.fromWei(args.value);
+    let valInUSDCents;
     if (args.token === NATIVE_ETH) {
-      const ethValInUSDCents = parseFloat(decimalValue) * ETH_USD_CENT;
-      if (ethValInUSDCents < payment.priceInUSDCent) {
-        return console.error(`payment [${paymentId}] not sufficient`);
+      valInUSDCents = parseFloat(decimalValue) * ETH_USD_CENT;
+    } else {
+      if (!ACCEPTED_USD_TOKENS.includes(args.token)) {
+        return console.error("payments of that token not supported");
       }
-      payment.paidUSDCent = ethValInUSDCents;
+      valInUSDCents = parseFloat(decimalValue) * 100;
     }
 
+    if (valInUSDCents < payment.priceInUSDCent) {
+      return console.error(`payment [${paymentId}] not sufficient`);
+    }
+
+    payment.paidUSDCent = valInUSDCents;
     payment.fulfilledHash = event.transactionHash;
     await paymentRepo.save(payment);
     console.info(`sucessfully paid [${paymentId}]`);

@@ -2,7 +2,10 @@
   "name": "@books/contracts",
   "version": "0.1.0",
   "private": true,
-  "dependencies": {},
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.4.2",
+    "@truffle/hdwallet-provider": "2.0.0"
+  },
   "devDependencies": {
     "truffle": "^5.4.31"
   }

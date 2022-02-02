@@ -8,7 +8,7 @@ import receiverAbi from '../abi/PaymentReceiver.json';
 import { isFulfilled } from '../modules';
 import { Book, PayablePaymentRequest, PaymentRequest } from '../types';
 import { DownloadButton } from './DownloadButton';
-import { PayButton } from './PayButton';
+import { PaymentOptions } from './PaymentOptions';
 
 
 export const BookView = (props: {book: Book}) => {
@@ -49,7 +49,7 @@ export const BookView = (props: {book: Book}) => {
   }, [account, web3, receipt]);
 
   return (
-    <div className="grid grid-cols-3 gap-4 items-center p-4">
+    <div className="grid grid-cols-4 gap-4 items-center p-4">
       <h2 className="text-lg">
         {book.title}
       </h2>
@@ -60,7 +60,7 @@ export const BookView = (props: {book: Book}) => {
       {(paymentRequest) 
        ? isFulfilled(paymentRequest) 
           ? <DownloadButton paymentRequest={paymentRequest}  />
-          : <PayButton paymentRequest={paymentRequest} onConfirmed={setReceipt}/>
+          : <PaymentOptions paymentRequest={paymentRequest} onConfirmed={setReceipt} />
        : <button className="btn-primary" disabled={!account} onClick={() => initPayment()}>buy</button>
       }
     </div>
