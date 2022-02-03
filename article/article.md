@@ -77,11 +77,11 @@ The traditional way for a contract to accept ERC20 tokens is to create their own
 
 ### Compiling and Deploying
 
-There are several toolchains that allow you to compile, deploy and interact with smart contracts, but one of the most advanced ones is the Truffle Suite. It comes with a builtin develoment blockchain based on Truffle's Ganache and a migration concept that lets you automate and safely execute contract deployments. To be able to deploy on "real" blockchain infrastructure, such as Ethereum testnets, one must have to things at hand: an Ethereum provider that's connected to a blockchain node and the private keys of an account that can sign transactions on behalf of the user and has some Ethers on it to pay for gas fees during deployment.
+There are several toolchains that allow you to compile, deploy and interact with smart contracts, but one of the most advanced ones is the [Truffle Suite](https://trufflesuite.com/). It comes with a builtin develoment blockchain based on Truffle's Ganache and a migration concept that lets you automate and safely execute contract deployments. To be able to deploy on "real" blockchain infrastructure, such as Ethereum testnets, one needs two things: an Ethereum provider that's connected to a blockchain node and the private keys of an account that can sign transactions on behalf of the user and has some Ethers on it to pay for gas fees during deployment.
 
 An account can be created and exported easily using Metamask: just create another account you're not using for anything else, fund it with some Eth using the testnet's faucet (we can recommend [Paradigm](https://faucet.paradigm.xyz/)) and export its private key using "Account Details" > "Export Private Key". For security reasons keys **never** must be committed to your code; our examples makes use of `.env` files instead: you can copy all packages' `.env` files to a gitignored `.env.local` and override the values safely, e.g. the `DEPLOYER_PRIVATEKEY` variable.
 
-Connecting to the Ethereum network requires access to a synced node. While you certainly could download one of the many clients and wait some days to have it synced on your machine, the by far much simpler and industry wide accepted solution is to connect to Ethereum nodes that are offered as a service, e.g. by [Infura](https://infura.io/). After signing up with them, they'll provide you with 3 different access keys and 100k RPC requests to their nodes per month and they're supporting a wide range of Ethereum networks. Once signed up take note of your Infura key and put it in your `contracts` `.env.local` as `INFURA_KEY`.
+Connecting to the Ethereum network requires access to a synced node. While you certainly could download one of the many clients and wait some days to have it synced on your machine, the by far much simpler and industry wide accepted solution is to connect to Ethereum nodes that are offered as a service, e.g. by [Infura](https://infura.io/). Their free tier provides you with 3 different access keys and 100k RPC requests per month and they support a wide range of Ethereum networks. Once signed up take note of your Infura key and put it in your `contracts` `.env.local` as `INFURA_KEY`.
 
 ![Infura keys](./infura_keys.png "getting keys to access nodes on the Infura infrastructure")
 
@@ -115,7 +115,12 @@ Our `truffle.config.js` shows how everything fits together:
  };
 ```
 
-## Using infura as provider for app and deployment
+For your local development setup you won't need any further setup. To start a local blockchain with prefunded accounts, just change to the `contracts` folder, execute a `yarn develop`. You can build the contracts by issuing a `compile` command and deploy them on your devnet with `migrate`. To interact with the deployed instances from inside the console you first get a deployed instance and call methods on it:
+
+```
+pr = await PaymentReceiver.deployed()
+balance = await pr.getBalance()
+```
 
 ## backend
 
