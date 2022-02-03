@@ -9,6 +9,14 @@ contract PaymentReceiver {
 
     //https://docs.instadapp.io/connectors/mainnet/1proto
     address immutable ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    event PaymentReceived(
+        address indexed buyer,
+        uint256 value,
+        address token,
+        bytes32 paymentId
+    );
+
     modifier onlyOwner() {
         require(msg.sender == _owner, "only allowed to be called by the owner");
         _;
@@ -17,13 +25,6 @@ contract PaymentReceiver {
     constructor() {
         _owner = payable(msg.sender);
     }
-
-    event PaymentReceived(
-        address indexed buyer,
-        uint256 value,
-        address token,
-        bytes32 paymentId
-    );
 
     receive() external payable {
         emit PaymentReceived(msg.sender, msg.value, ETH_ADDRESS, bytes32(0));
