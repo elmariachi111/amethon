@@ -271,7 +271,7 @@ const handlePaymentEvent = async (event: PaymentReceivedEvent) => {
 
 Our bookstore's frontend is built using a plain [Create React App](https://create-react-app.dev/) template with Typescript support and [Tailwind](https://tailwindcss.com/) for basic styles. CRA5 bumped their webpack dependency to a version that doesn't support node polyfills in browsers anymore which breaks the builds of nearly all Ethereum related projects today. A common workaround that avoids ejecting is to hook into the CRA build process - we decided to use [react-app-rewired](https://github.com/timarney/react-app-rewired) or go with CRA4 until the community agreed to a better solution.
 
-### connecting to web3
+### Connecting a web3 Wallet
 
 The most crucial part of a Dapp is to get a connection to an user's wallet. While you could try to manually wire that process up according to [the official Metamask docs](https://docs.metamask.io/guide/getting-started.html), we strongly recommend going with an appropriate React library; we found Noah Zinsmeister's [web3-react](https://www.npmjs.com/package/web3-react) to do the job best. Detecting and connecting to a web3 client then boils down to this code (`ConnectButton.tsx`):
 
@@ -302,7 +302,7 @@ export const ConnectButton = () => {
 };
 ```
 
-By wrapping your app's code in an `<Web3ReactProvider getLibrary={getWeb3Library}>` context you can access the web3 provider, account and connected state using the `useWeb3React` hook from anywhere. Since Web3React is agnostic to the web3 library being used ([Web3.js](https://www.npmjs.com/package/web3) or [ethers.js](https://www.npmjs.com/package/ethers)), you must provide a callback that yields a connected "library" once:
+By wrapping your `App`'s code in an `<Web3ReactProvider getLibrary={getWeb3Library}>` context you can access the web3 provider, account and connected state using the `useWeb3React` hook from anywhere. Since Web3React is agnostic to the web3 library being used ([Web3.js](https://www.npmjs.com/package/web3) or [ethers.js](https://www.npmjs.com/package/ethers)), you must provide a callback that yields a connected "library" once:
 
 ```typescript
 import Web3 from "web3";
@@ -311,14 +311,146 @@ function getWeb3Library(provider: any) {
 }
 ```
 
-## usage
+## Payment flows
 
-### paying with ETH
+After loading the available books from the amethon backend the `<BookView>` component first checks whether payments for this user already had been processed and then displays all supported payment options bundled inside the `<PaymentOptions>` component.
 
-### paying with Stablecoins
+![The amethon storefront with payment options](./storefront.png "The amethon storefront with payment options")
 
-### signing download requests
+### Paying with ETH
 
-## Deploying on a public testnet
+The `<PaymentButton>` is responsible for initiating direct Ether transfers to the `PaymentReceiver` contract. Since these calls are not interacting with the contract's interface directly, there's no need to initialize a contract instance client side:
 
-## Outlook
+```typescript
+const weiPrice = usdInEth(paymentRequest.priceInUSDCent);
+
+const tx = web3.eth.sendTransaction({
+  from: account, //the current user
+  to: paymentRequest.receiver.options.address, //the ÜaymentReceiver contract address
+  value: weiPrice, //the eth price in wei (10**18)
+  data: paymentRequest.idUint256, //the paymentRequest's id, converted to a uint256 hex string
+});
+tx.on("confirmation", (confirmationNumber, receipt) => {
+  if (confirmationNumber < 2) onConfirmed(receipt);
+});
+```
+
+Since the created transaction carries a `msg.data` field, it will by Solidity's convention trigger the `PaymentReceiver`'s `fallback() external payable` function that emits a `PaymentReceived` event with Eth as token address. This is picked up by the daemonized chain listener that updates the backend's database state accordingly.
+
+![Metamask dialog for transferring Ether to the contract](./paywitheth.png "Metamask dialog for transferring Ether to the contract")
+
+A static helper function is responsible to convert the current dollar price to an Ether value. In a real world scenario you'd want to query the exchange rates either from a trustworthy 3rd party like [Coingecko](https://www.coingecko.com/en/api) or querying from a DEX like [Uniswap](https://docs.uniswap.org/sdk/guides/fetching-prices). Doing so would allow you to extend amethon to accept arbitrary tokens as payments.
+
+```typescript
+const ETH_USD_CENT = 2_200 * 100;
+export const usdInEth = (usdCent: number) => {
+  const eth = (usdCent / ETH_USD_CENT).toString();
+  const wei = Web3.utils.toWei(eth, "ether");
+  return wei;
+};
+```
+
+### Paying with ERC20 Stablecoins
+
+For reasons pointed out in the beginning, payments in ERC20 tokens are slightly more complex from a user's perspective since one cannot simply drop tokens on a contract. Instead we must - as nearly anyone with a comparable usecase - first ask the user to give their **permission** that our `PaymentReceiver` contract may transfer their funds and afterwards have them call the actual `payWithEerc20` method on it that transfers the requested funds on behalf of the user.
+
+Here's the `PayWithStableButton`'s code for giving the permission on a selected ERC20 token:
+
+```typescript
+const contract = new web3.eth.Contract(
+  IERC20ABI as AbiItem[],
+  process.env.REACT_APP_STABLECOINS
+);
+
+const appr = await coin.methods
+  .approve(
+    paymentRequest.receiver.options.address, //receiver's contract address
+    price // in wei
+  )
+  .send({
+    from: account,
+  });
+```
+
+Note that the ABI needed to setup a `Contract` instance of the ERC20 token receives a general IERC20 ABI. We're conveniently using the generated ABI from [OpenZeppelin's official library](https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20) but any other generated ABI would do the same job. After having approved the transfer we can initiate the payment:
+
+```typescript
+const contract = new web3.eth.Contract(
+  ReceiverAbi as AbiItem[],
+  paymentRequest.receiver.options.address
+);
+const tx = await contract.methods
+  .payWithErc20(
+    process.env.REACT_APP_STABLECOINS, //identifies the ERC20 contract
+    weiPrice, //price in USD (it's a stablecoin)
+    paymentRequest.idUint256 //the paymentRequest's id as uint256
+  )
+  .send({
+    from: account,
+  });
+```
+
+## Signing Download Requests
+
+Finally, we're able to let our customer download their ebook. But there's a caveat: Since we have no "logged in" user, how do we ensure that only users who actually paid for content can invoke our download route? The answer are cryptographic signatures. On click the `<DownloadButton>` component creates a unique message that is presented to be signed by the customer:
+
+```typescript
+const download = async () => {
+  const url = `${process.env.REACT_APP_BOOK_SERVER}/books/${book.ISBN}/download`;
+
+  const nonce = Web3.utils.randomHex(32);
+  const dataToSign = Web3.utils.keccak256(`${account}${book.ISBN}${nonce}`);
+
+  const signature = await web3.eth.personal.sign(dataToSign, account, "");
+
+  const resp = await (
+    await axios.post(
+      url,
+      {
+        address: account,
+        nonce,
+        signature,
+      },
+      { responseType: "arraybuffer" }
+    )
+  ).data;
+  // present that buffer as download to the user...
+};
+```
+
+![Metamask signing dialog to prove a the customer's address](./sign_download.png "Metamask signing dialog to prove a the customer's address")
+
+On the backend's `download` route we can recover the signer's address because we also know how to assemble the message. If that address matches a fulfilled `PaymentRequest` on our database, we know that we can permit access to the requested resource:
+
+```typescript
+// server.ts
+app.post(
+  "/books/:isbn/download",
+  async (req: DownloadBookRequest, res: Response) => {
+    const { signature, address, nonce } = req.body;
+
+    //rebuild the message the user created on their frontend
+    const signedMessage = Web3.utils.keccak256(
+      `${address}${req.params.isbn}${nonce}`
+    );
+
+    const signingAccount = await web3.eth.accounts.recover(
+      signedMessage,
+      signature,
+      false
+    );
+
+    if (signingAccount !== address) {
+      return res.status(401).json({ error: "not signed by address" });
+    }
+
+    //deliver the binary content...
+  }
+);
+```
+
+Note, that the interaction presented here is still not unfailable. Of course anyone who knows a valid signature for a purchased item can now just successfully call the download route. To improve the route's security you could create the nonce server side to have the customer sign and prove it. Another note: since users themselves cannot make any sense of the garbled hex code they're supposed to sign, they cannot know, if we're going to trick them into signing another valid transaction that might compromise their account. We're avoiding this attack vector by making use of web's `eth.personal.sign` method but it might be nicer to display the message to be signed in a human friendly way. That's what [EIP-712](https://eips.ethereum.org/EIPS/eip-712) is trying to achieve, a standard that's [already supported by Metask](https://docs.metamask.io/guide/signing-data.html).
+
+## Conclusion and Outlook
+
+Accepting payments on ecommerce websites never has been an easy task for developers. While the web3 ecosystem allows stores to accept digital currencies, the availability of service independent plugin solutions is still low. This article demonstrated only one safe way to request and receive payments but you can take it further from here. Gas costs for ERC20 transfers on Ethereum mainnet are exceeding our example's book prices so for low priced items one must use more gas friendly environments like [Gnosis Chain](https://www.xdaichain.com/) (their "native" Ether currency is the DAI stablecoin, so one doesn't have to worry about stablecoin transfers at all) or [Arbitrum](https://arbitrum.io/). You could think of extending backend with more advanced payment requests or cart checkouts or you could use DEXes to swap any incoming ERC20 tokens into your preferred currency. However, the promise of web3 holds: it allows direct monetary transaction without any middlemen and might be a great option to add for crypto savvy customers.
