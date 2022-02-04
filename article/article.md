@@ -1,22 +1,20 @@
 # Accepting Crypto Payments in a Classic Commerce App
 
-E-commerce storefronts are surprisingly slowly adapting crypto tokens as a payment method. Crypto payment plugins or payment gateway integrations aren't generally available or rely on a 3rd party custodian to collect, exchange and distribute revenues. Considering the growing ownership rate and experimentation ratio of crypto currencies, a "pay with token" button could be a great addition to any online shop to drive sales. Here we demonstrate how you can integrate a secure crypto payment method into any online store without relying on any 3rd party service.
+E-commerce storefronts are surprisingly slow to offer crypto payment methods to their customers. Crypto payment plugins or payment gateway integrations aren't generally available or rely on 3rd party custodians to collect, exchange and distribute money. Considering the growing ownership rate and experimentation ratio of crypto currencies, a "pay with crypto" button could greatly drive sales, though. This article demonstrates how you can integrate a custom secure crypto payment method into any online store without relying on any 3rd party service.
 
-## Scenario: the amethon bookstore
+## Scenario: the Amethon Bookstore
 
-The goal is to build a storefront for downloadable ebooks that accepts the blockchain's native Ether currency and ERC20 stablecoins (pegged in USD) as payment which allows us to do without an external exchange rate service apart from an updated ETH/USD rate that we will just assume fixed for simplicity's sake.
+The goal is to build a storefront for downloadable ebooks that accepts the Ethereum blockchain's native currency ("Ether") and ERC20 stablecoins (pegged in USD) as payment method. Lets refer to it as "Amethon" from here on.
 
-### application structure
+### Application Structure
 
-The store is built as a very plain express CRUD API with no direct connection to any blockchain. Its frontend relies on a plain Create React App setup and the settlement layer consists of an Ethereum smart contract that accepts Ether and ERC20 payments.
+The store is built as a plain express CRUD API that itself is not connected to any blockchain at all. Its frontend activates payment requests on that API that customers fulfill using nothing but their crypto wallet.
 
-Amethon is "classic" ecommerce application so it must take care of the business logic itself. To initiate the checkout transaction the backend creates a `PaymentRequest` object with an unique identifier that users are supposed to send along their payment transaction. Once the payment has settled, a permanently running daemon listens to corresponding payment events emitted by the contract layer and updates the store's database when a payment has settled. To authenticate requests for the final download step the backend requires the customer's individual signature. The full Amethon implementation can be found on our [github repo](https://github.com/elmariachi111/amethon). All code is written in Typescript and can be compiled using the respective `yarn build` or `yarn dev` commands.
+Amethon is designed as a "traditional" e-commerce application that takes care of the business logic itself and doesn't rely on any onchain data besides the payment itself. Upon checkout initiation the backend issues `PaymentRequest` objects that carry an unique identifier (i.e. an "invoice number") that users will send attach to their payment transactions. A background daemon listens to the respective contract events and updates the store's database when a payment has been detected. The full Amethon implementation can be found on our [github monorepo](https://github.com/elmariachi111/amethon). All code is written in Typescript and can be compiled using the package's `yarn build` or `yarn dev` commands.
 
-## Contracts
+## The PaymentReceiver contract
 
-### The PaymentReceiver contract
-
-The heart of our bookstore is an Ethereum `PaymentReceiver` smart contract that accepts payments on behalf of the storefront owner. Provided they don't contain any errors themselves, smart contracts can be considered trustworthy fund keepers and hence are a great place to store income. Every time a user sends funds to the `PaymentReceiver` contract, it emits an `PaymentReceived` event that contains information about the payment origin (the buyer's Ethereum account), its total value, the token contract used, and the `paymentId` that all interactions refer to.
+The heart of Amethon is the `PaymentReceiver` smart contract that accepts payments on behalf of the storefront owner. Provided they don't contain any errors themselves, smart contracts can be considered trustworthy and uncompromiseable funds keepers. Every time a user sends funds to the `PaymentReceiver`, the contract emits an `PaymentReceived` event that contains information about the payment's origin (the customer's Ethereum account), its total value, the token contract used, and the `paymentId` that refers to the backend's database entry.
 
 ```solidity
   event PaymentReceived(
@@ -27,7 +25,7 @@ The heart of our bookstore is an Ethereum `PaymentReceiver` smart contract that 
   );
 ```
 
-Ethereum contract accounts act in the same way as any other user based account (called "externally owned" or EOA) but allow us to overwrite default functions that are invoked when someone transfers Ether funds to the contract:
+Ethereum contract accounts act in the same way as any user based account (which are called "externally owned" or EOA). Receiving the native Ether currency requires us to implement the conventional `recive` and `fallback` functions which are invoked when someone transfers Ether funds to the contract:
 
 ```solidity
   receive() external payable {
@@ -40,9 +38,9 @@ Ethereum contract accounts act in the same way as any other user based account (
   }
 ```
 
-[Solidity's official docs](https://docs.soliditylang.org/en/v0.8.11/contracts.html?highlight=receive#special-functions) point out the subtle differences between both: `receive` is a default function invoked when the incoming transaction doesn't contain any additional data, otherwise `fallback` gets called. Ethereum's native currency is not an ERC20 token itself and has no utility besides being a counting unit but it got its own identifiable address (`0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`) that goes into the emitted payment event.
+[Solidity's official docs](https://docs.soliditylang.org/en/v0.8.11/contracts.html?highlight=receive#special-functions) point out the subtle difference between both: `receive` is invoked when the incoming transaction doesn't contain any additional data, otherwise `fallback` gets called. Ethereum's native currency itself is not an ERC20 token and has no utility besides being a counting unit. However, it's got an identifiable address (`0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE`) that we use to signal an Ether payment in our `PaymentReceived` events.
 
-Plain Ether transfers come with a caveat: the amount of computation allowed upon reception is extremely low. The gas sent along by users merely allow us to emit an event but not to redirect funds to the store owner's original address. We therefore decided to have the receiver contract keep all incoming Ethers and allow the store owner to release them to their own account at any time:
+Ether transfers have a major shortcoming: the amount of allowed computation upon reception is extremely low. The gas sent along by customers merely allows us to emit an event but not to redirect funds to the store owner's original address. We therefore decided to have the receiver contract keep all incoming Ethers and allow the store owner to release them to their own account at any time:
 
 ```solidity
 function getBalance() public view returns (uint256) {
@@ -55,9 +53,9 @@ function release() external onlyOwner {
 }
 ```
 
-Accepting ERC20 tokens as a payment is slightly more difficult for historical reasons. In 2015 the authors of its [initial specification](https://eips.ethereum.org/EIPS/eip-20) couldn't predict the upcoming requirements and kept the standard's interface as simple as possible. This effectively means that there's no way for a contract to figure out whether someone sent ERC20 to it because there simply is no universally accepted callback mechanism in the plain specification. Today things are different, though: The [EIP 1363](https://eips.ethereum.org/EIPS/eip-1363) standard is addressing this very problem but [it is not implemented](https://twitter.com/ahmetaygun/status/1462168627159916554?s=20&t=9JFFvtuCHGQpCc7iCK8N1Q) by major stablecoin platforms.
+Accepting ERC20 tokens as a payment is slightly more difficult for historical reasons. In 2015 the authors of its [initial specification](https://eips.ethereum.org/EIPS/eip-20) couldn't predict the upcoming requirements and kept the standard's interface as simple as possible. Most notably it doesn't notify recipients about transfers so there's no way for our `PaymentReceiver` to execute code when ERC20 tokens are transferred to it. The ecosystem has changed in the meanwhile and brought up additions like the [EIP 1363](https://eips.ethereum.org/EIPS/eip-1363) standard that address this very problem. Unfortunately you cannot rely major stablecoin platforms to [have implemented it yet](https://twitter.com/ahmetaygun/status/1462168627159916554?s=20&t=9JFFvtuCHGQpCc7iCK8N1Q).
 
-The traditional way for a contract to accept ERC20 tokens is to create their own acceptance method which transfers funds on behalf of the current user. The commonly accepted tradeoff here is that users must first allow the contract to do so which unfortunately currently requires them to first send an `Approval` transaction to the ERC20 token contract before interacting with the real payment method. [EIP-2612](https://github.com/ethereum/EIPs/issues/2613) might once improve this situation but for now we have to play by the rules:
+So, Amethon has to accept ERC20 token payments in the "classic" way. Instead of "dropping" tokens on it unknowingly, the contract takes care of the transfer on behalf of the customer. This requires users to first _allow_ the contract to handle a certain amount of their funds. Unfortunately that requires them to first transmit an `Approval` transaction to the ERC20 token contract before interacting with the real payment method. [EIP-2612](https://github.com/ethereum/EIPs/issues/2613) might once improve this situation but for now we have to play by the old rules:
 
 ```solidity
   function payWithErc20(
@@ -75,19 +73,19 @@ The traditional way for a contract to accept ERC20 tokens is to create their own
   }
 ```
 
-![Metamask Approval dialog for ERC20 transfers](./erc20_permission.png "Metamask's user facing approval transaction dialog")
+![Metamask Approval dialog for ERC20 transfers](./erc20_permission.png "Metamask's user facing ERC20 approval dialog")
 
-### Compiling and Deploying
+### Compiling, Deploying and Variable Safety
 
-There are several toolchains that allow you to compile, deploy and interact with smart contracts, but one of the most advanced ones is the [Truffle Suite](https://trufflesuite.com/). It comes with a builtin develoment blockchain based on Truffle's Ganache and a migration concept that lets you automate and safely execute contract deployments. To be able to deploy on "real" blockchain infrastructure, such as Ethereum testnets, one needs two things: an Ethereum provider that's connected to a blockchain node and the private keys of an account that can sign transactions on behalf of the user and has some Ethers on it to pay for gas fees during deployment.
+Several toolchains allow developers to compile, deploy and interact with Ethereum smart contracts, but one of the most advanced ones is the [Truffle Suite](https://trufflesuite.com/). It comes with a builtin develoment blockchain based on [Ganache](https://trufflesuite.com/ganache/) and a migration concept that lets you automate and safely run contract deployments. To be able to deploy on "real" blockchain infrastructure, such as Ethereum testnets, one needs two things: an Ethereum provider that's connected to a blockchain node and the private keys or wallet mnemonics of an account that can sign transactions on behalf of the user and has some Ethers on it to pay for gas fees during deployment.
 
-An account can be created and exported easily using Metamask: just create another account you're not using for anything else, fund it with some Eth using the testnet's faucet (we can recommend [Paradigm](https://faucet.paradigm.xyz/)) and export its private key using "Account Details" > "Export Private Key". For security reasons keys **never** must be committed to your code; our examples makes use of `.env` files instead: you can copy all packages' `.env` files to a gitignored `.env.local` and override the values safely, e.g. the `DEPLOYER_PRIVATEKEY` variable.
+Metamask does that job: create a new account that you're not using for anything else but deployment (it will become the "owner" of the contract), fund it with some Eth using your preferred testnet's faucet (we recommend [Paradigm](https://faucet.paradigm.xyz/)) and export that account's private key ("Account Details" > "Export Private Key"). For security reasons keys **never** must be committed to your code. Instead, our code make use of environment variables. you can copy all `.env` files in the packages' subdirectories to gitignored `.env.local`s and override their values safely, e.g. the `DEPLOYER_PRIVATEKEY` variable.
 
-Connecting to the Ethereum network requires access to a synced node. While you certainly could download one of the many clients and wait some days to have it synced on your machine, the by far much simpler and industry wide accepted solution is to connect to Ethereum nodes that are offered as a service, e.g. by [Infura](https://infura.io/). Their free tier provides you with 3 different access keys and 100k RPC requests per month and they support a wide range of Ethereum networks. Once signed up take note of your Infura key and put it in your `contracts` `.env.local` as `INFURA_KEY`.
+To connect your local environment to an Ethereum network you need access to a synced blockchain node. While you certainly could download one of the many clients and wait some days to have it synced on your machine, the by far much more convenient way happens to be an industry wide accepted solution. It is very common to connect your applications to Ethereum nodes that are offered as a service, the most well-known being [Infura](https://infura.io/). Their free tier provides you with 3 different access keys and 100k RPC requests per month supporting a wide range of Ethereum networks. Once signed up take note of your Infura key and put it in your `contracts` `.env.local` as `INFURA_KEY`.
 
 ![Infura keys](./infura_keys.png "getting keys to access nodes on the Infura infrastructure")
 
-Our `truffle.config.js` shows how everything fits together:
+Then you can add your private key and individual Infura provider URL to your `truffle.config.js`:
 
 ```
  const HDWalletProvider = require('@truffle/hdwallet-provider');
@@ -110,14 +108,13 @@ Our `truffle.config.js` shows how everything fits together:
    },
    compilers: {
      solc: {
-       version: "0.8.11",
-
+       version: "0.8.11"
      }
    }
  };
 ```
 
-Local development doesn't require any special setup. Change to the `contracts` folder and run `yarn truffle develop`. This will start a local blockchain with prefunded accounts and open a connected console on it. Type `compile` to compile all contracts at once and deploy them to your the local chain with `migrate`. You can interact with the deployed instances by requesting the currently deployed instance of it and calling its methods like this:
+If you'd like to interact with contracts on the Kovan network, you simply add a `--network kovan` option to all your `truffle` commands or even start an interactive console: `yarn truffle console --network kovan`. To code and test contracts locally there's no special setup needed, though. Change to the `contracts` folder and run `yarn truffle develop`. This will start a local blockchain with prefunded accounts and opens a connected console on it. Type `compile` to compile all contracts at once and deploy them to your the local chain with `migrate`. You can interact with contracts by requesting their currently deployed instance and call its functions like so:
 
 ```
 pr = await PaymentReceiver.deployed()
@@ -132,9 +129,9 @@ yarn truffle migrate --interactive --network kovan
 
 ## The Backend
 
-### the store API / CRUD
+### The Store API / CRUD
 
-The foremost task of our backend is to provide a REST-like API to access CRUD resources. We've decided to go with TypeORM to setup a local SQLite database and created entities for `Book`s and `PaymentRequest`s. Books obviously represent our shop's main entity and have a retail price, denoted in USD cents. On a sidenote: storing monetary values as integers is highly adviseable on any computer system because operating on float values will certainly introduce precision errors - all tokens on Ethereum operate with 18 decimal digits and 1 Ether therefore represents "1000000000000000000" _wei_, the smallest ether unit.
+Our backend provides a JSON API to interact with payment entities on a high level. We've decided to use [TypeORM](https://typeorm.io/) and a local SQLite database to support entities for `Book`s and `PaymentRequest`s. Books represent our shop's main entity and have a retail price, denoted in USD cents. To initially seed the database with books you can use the accompanying `seed.ts` file that once compiled can be executed by invoking `node build/seed.js`.
 
 ```typescript
 import { Entity, Column, PrimaryColumn, OneToMany } from "typeorm";
@@ -159,12 +156,11 @@ export class Book {
 }
 ```
 
-Users who intend to _buy_ a book from our store, first create an individual `PaymentRequest` for their item by invoking the `/books/:isbn/order` route. It creates a new unique identifier that must be sent along each request. We're using plain integers here but for real use cases you'd want to use something more sophisticated - just make sure that its binary length fits into 32 bytes, which translate to one uint256 in Solidity. Each `PaymentRequest` inherits the books retail value in USD cents and carries the receiver's address; thus a book can effectively bought as a gift for another address. `fulfilledHash` and `paidUSDCent` will be determined during the buying process. The frontend will request already existing `PaymentRequest`s by calling the `/books/:isbn/payments/:address` route.
+Heads up: storing monetary values as float values [is strongly discouraged](https://stackoverflow.com/questions/3730019/why-not-use-double-or-float-to-represent-currency) on any computer system because operating on float values will certainly introduce precision errors. That's also a reason why all crypto tokens operate with 18 decimal digits and Solidity doesn't even have a float data type. 1 Ether actually represents "1000000000000000000" _wei_, the smallest ether unit.
+
+Users who intend to _buy_ a book from Amethon create an individual `PaymentRequest` for their item first by calling the `/books/:isbn/order` route. It creates a new unique identifier that must be sent along each request. We're using plain integers here but for real life use cases you'll use something more sophisticated - only restricion is the id's binary length that must fit into 32 bytes (uint256). Each `PaymentRequest` inherits the book's retail value in USD cents and bears the customer's address, `fulfilledHash` and `paidUSDCent` will be determined during the buying process.
 
 ```typescript
-import { Entity, Column, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Book } from "./Book";
-
 @Entity()
 export class PaymentRequest {
   @PrimaryGeneratedColumn()
@@ -186,6 +182,8 @@ export class PaymentRequest {
   book: Book;
 }
 ```
+
+An initial order request that creates a `PaymentRequest` entity looks like:
 
 ```json
 POST http://localhost:3001/books/978-0060850524/order
@@ -213,13 +211,12 @@ Content-Type: application/json
 
 ```
 
-To initially seed the database with books you can use the accompanying `seed.ts` file that once compiled can be executed by invoking `node build/seed.js`.
+### The Blockchain Listener Background Service
 
-### The blockchain listener daemon
-
-At its core a blockchain is a never ending list of consecutive transactions that modify one huge state tree. Querying the state tree from clients doesn't cost any gas but requires (Infura's) nodes to read data - when that those operations become too computation heavy, they might simply time out. For real time interactions it therefore is highly recommended to not poll contract view methods but listen to events emitted by transactions instead. This is how the backend's `daemon.ts` script listens for `PaymentReceived` events:
+Querying a blockchain's state tree doesn't cost clients any gas but nodes still need to compute. When those operations become too computation heavy, they might simply time out. Hence, ror real time interactions it is highly recommended to not poll chain state but rather listen to events emitted by transactions. This requires websocket enabled provider but Infura got us covered: simply use their `wss://` schemed provider URLs for your backend's `PROVIDER_RPC` environment variable. Then you can start the backend's `daemon.ts` script and listen for `PaymentReceived` events on any chain:
 
 ```typescript
+  const web3 = new Web3(process.env.PROVIDER_RPC as string);
   const paymentReceiver = new web3.eth.Contract(
     paymentReceiverAbi as AbiItem[],
     process.env.PAYMENT_RECEIVER_CONTRACT as string
@@ -233,9 +230,9 @@ At its core a blockchain is a never ending list of consecutive transactions that
 })();
 ```
 
-Take note of how we're instantiating the `Contract` instance with an "ABI": this "Application Binary Interface" is a compiler generated output that contains information for RPC clients which methods, events and arguments exist on a smart contract. Once instantiated you can hook a listener on the contract's `PaymentReceived` logs (starting at block 0) and handle them once received.
+Take note of how we're instantiating the `Contract` instance with an "ABI": the [Application Binary Interface](https://docs.soliditylang.org/en/v0.8.11/abi-spec.html) is generated by the Solidity compiler and contains information for RPC clients how to encode transactions to invoke and decode functions, events or arguments on a smart contract. Once instantiated you can hook a listener on the contract's `PaymentReceived` logs (starting at block 0) and handle them once received.
 
-Since Amethon shall shall support Ether and stablecoin ("USD") payments the `handlePaymentEvent` methods first checks which token has been used in the user's payment and computes its dollar value if necessary:
+Since Amethon shall support Ether and stablecoin ("USD") payments, the daemon's `handlePaymentEvent` method first checks which token has been used in the user's payment and computes its dollar value if needed:
 
 ```typescript
 const ETH_USD_CENT = 2_200 * 100;
@@ -252,7 +249,7 @@ const handlePaymentEvent = async (event: PaymentReceivedEvent) => {
     valInUSDCents = parseFloat(decimalValue) * ETH_USD_CENT;
   } else {
     if (!ACCEPTED_USD_TOKENS.includes(args.token)) {
-      return console.error("payments of that token not supported");
+      return console.error("payments of that token are not supported");
     }
     valInUSDCents = parseFloat(decimalValue) * 100;
   }
@@ -269,11 +266,11 @@ const handlePaymentEvent = async (event: PaymentReceivedEvent) => {
 
 ## The Frontend
 
-Our bookstore's frontend is built using a plain [Create React App](https://create-react-app.dev/) template with Typescript support and [Tailwind](https://tailwindcss.com/) for basic styles. CRA5 bumped their webpack dependency to a version that doesn't support node polyfills in browsers anymore which breaks the builds of nearly all Ethereum related projects today. A common workaround that avoids ejecting is to hook into the CRA build process - we decided to use [react-app-rewired](https://github.com/timarney/react-app-rewired) or go with CRA4 until the community agreed to a better solution.
+Our bookstore's frontend is built on the official [Create React App](https://create-react-app.dev/) template with Typescript support and uses [Tailwind](https://tailwindcss.com/) for basic styles. Heads up: CRA5 bumped their webpack dependency to a version that doesn't support node polyfills in browsers anymore and breaks the builds of nearly all Ethereum related projects today. A common workaround that avoids ejecting is to hook into the CRA build process - we 're using [react-app-rewired](https://github.com/timarney/react-app-rewired) but you could simply stay at CRA4 until the community comes up with a better solution.
 
 ### Connecting a web3 Wallet
 
-The most crucial part of a Dapp is to get a connection to an user's wallet. While you could try to manually wire that process up according to [the official Metamask docs](https://docs.metamask.io/guide/getting-started.html), we strongly recommend going with an appropriate React library; we found Noah Zinsmeister's [web3-react](https://www.npmjs.com/package/web3-react) to do the job best. Detecting and connecting to a web3 client then boils down to this code (`ConnectButton.tsx`):
+The crucial part of any Dapp is connecting to an user's wallet. You could try to manually wire that process up following the [the official Metamask docs](https://docs.metamask.io/guide/getting-started.html) but we strongly recommend going with an appropriate React library. We found Noah Zinsmeister's [web3-react](https://www.npmjs.com/package/web3-react) to do the job best. Detecting and connecting a web3 client boils down to this code (`ConnectButton.tsx`):
 
 ```tsx
 import { useWeb3React } from "@web3-react/core";
@@ -302,7 +299,7 @@ export const ConnectButton = () => {
 };
 ```
 
-By wrapping your `App`'s code in an `<Web3ReactProvider getLibrary={getWeb3Library}>` context you can access the web3 provider, account and connected state using the `useWeb3React` hook from anywhere. Since Web3React is agnostic to the web3 library being used ([Web3.js](https://www.npmjs.com/package/web3) or [ethers.js](https://www.npmjs.com/package/ethers)), you must provide a callback that yields a connected "library" once:
+By wrapping your `App`'s code in an `<Web3ReactProvider getLibrary={getWeb3Library}>` context you can access the web3 provider, account and connected state using the `useWeb3React` hook from any component. Since Web3React is agnostic to the web3 library being used ([Web3.js](https://www.npmjs.com/package/web3) or [ethers.js](https://www.npmjs.com/package/ethers)), you must provide a callback that yields a connected "library" once:
 
 ```typescript
 import Web3 from "web3";
@@ -311,22 +308,22 @@ function getWeb3Library(provider: any) {
 }
 ```
 
-## Payment flows
+## Payment Flows
 
-After loading the available books from the amethon backend the `<BookView>` component first checks whether payments for this user already had been processed and then displays all supported payment options bundled inside the `<PaymentOptions>` component.
+After loading the available books from the Amethon backend the `<BookView>` component first checks whether payments for this user already had been processed and then displays all supported payment options bundled inside the `<PaymentOptions>` component.
 
-![The amethon storefront with payment options](./storefront.png "The amethon storefront with payment options")
+![The Amethon storefront with payment options](./storefront.png "The Amethon storefront with payment options")
 
 ### Paying with ETH
 
-The `<PaymentButton>` is responsible for initiating direct Ether transfers to the `PaymentReceiver` contract. Since these calls are not interacting with the contract's interface directly, there's no need to initialize a contract instance client side:
+The `<PaymentButton>` is responsible for initiating direct Ether transfers to the `PaymentReceiver` contract. Since these calls are not interacting with the contract's interface directly, we don't even need to initialize a contract instance:
 
 ```typescript
 const weiPrice = usdInEth(paymentRequest.priceInUSDCent);
 
 const tx = web3.eth.sendTransaction({
   from: account, //the current user
-  to: paymentRequest.receiver.options.address, //the ÜaymentReceiver contract address
+  to: paymentRequest.receiver.options.address, //the PaymentReceiver contract address
   value: weiPrice, //the eth price in wei (10**18)
   data: paymentRequest.idUint256, //the paymentRequest's id, converted to a uint256 hex string
 });
@@ -335,11 +332,11 @@ tx.on("confirmation", (confirmationNumber, receipt) => {
 });
 ```
 
-Since the created transaction carries a `msg.data` field, it will by Solidity's convention trigger the `PaymentReceiver`'s `fallback() external payable` function that emits a `PaymentReceived` event with Eth as token address. This is picked up by the daemonized chain listener that updates the backend's database state accordingly.
+As explained earlier, since the new transaction carries a `msg.data` field, it will by Solidity's convention trigger the `PaymentReceiver`'s `fallback() external payable` function that emits a `PaymentReceived` event with Ether's token address. This is picked up by the daemonized chain listener that updates the backend's database state accordingly.
 
-![Metamask dialog for transferring Ether to the contract](./paywitheth.png "Metamask dialog for transferring Ether to the contract")
+![Metamask dialog Ether transfers](./paywitheth.png "Metamask dialog for  Ether transfers")
 
-A static helper function is responsible to convert the current dollar price to an Ether value. In a real world scenario you'd want to query the exchange rates either from a trustworthy 3rd party like [Coingecko](https://www.coingecko.com/en/api) or querying from a DEX like [Uniswap](https://docs.uniswap.org/sdk/guides/fetching-prices). Doing so would allow you to extend amethon to accept arbitrary tokens as payments.
+A static helper function is responsible to convert the current dollar price to an Ether value. In a real world scenario you'd want to query the exchange rates either from a trustworthy 3rd party like [Coingecko](https://www.coingecko.com/en/api) or query it from a DEX like [Uniswap](https://docs.uniswap.org/sdk/guides/fetching-prices). Doing so would allow you to extend Amethon to accept arbitrary tokens as payments.
 
 ```typescript
 const ETH_USD_CENT = 2_200 * 100;
@@ -352,7 +349,7 @@ export const usdInEth = (usdCent: number) => {
 
 ### Paying with ERC20 Stablecoins
 
-For reasons pointed out in the beginning, payments in ERC20 tokens are slightly more complex from a user's perspective since one cannot simply drop tokens on a contract. Instead we must - as nearly anyone with a comparable usecase - first ask the user to give their **permission** that our `PaymentReceiver` contract may transfer their funds and afterwards have them call the actual `payWithEerc20` method on it that transfers the requested funds on behalf of the user.
+For reasons pointed out already, payments in ERC20 tokens are slightly more complex from an user's perspective since one cannot simply drop tokens on a contract. Instead we must - as nearly anyone with a comparable usecase - first ask the user to give their _permission_ that our `PaymentReceiver` contract may transfer their funds and afterwards have them call the actual `payWithEerc20` method that transfers the requested funds on behalf of the user.
 
 Here's the `PayWithStableButton`'s code for giving the permission on a selected ERC20 token:
 
@@ -372,11 +369,11 @@ const appr = await coin.methods
   });
 ```
 
-Note that the ABI needed to setup a `Contract` instance of the ERC20 token receives a general IERC20 ABI. We're conveniently using the generated ABI from [OpenZeppelin's official library](https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20) but any other generated ABI would do the same job. After having approved the transfer we can initiate the payment:
+Note that the ABI needed to setup a `Contract` instance of the ERC20 token receives a general IERC20 ABI. We're conveniently using the generated ABI from [OpenZeppelin's official library](https://docs.openzeppelin.com/contracts/4.x/api/token/erc20#IERC20) but any other generated ABI would do the job. After having approved the transfer we can initiate the payment:
 
 ```typescript
 const contract = new web3.eth.Contract(
-  ReceiverAbi as AbiItem[],
+  PaymentReceiverAbi as AbiItem[],
   paymentRequest.receiver.options.address
 );
 const tx = await contract.methods
@@ -392,7 +389,7 @@ const tx = await contract.methods
 
 ## Signing Download Requests
 
-Finally, we're able to let our customer download their ebook. But there's a caveat: Since we have no "logged in" user, how do we ensure that only users who actually paid for content can invoke our download route? The answer are cryptographic signatures. On click the `<DownloadButton>` component creates a unique message that is presented to be signed by the customer:
+Finally, our customer can download their ebook. But there's still an issue: Since we have no "logged in" user, how do we ensure that only users who actually paid for content can invoke our download route? The answer are cryptographic signatures. Before redirecting users to our backend, the `<DownloadButton>` component lets users sign an unique message that is submitted as a proof of account control:
 
 ```typescript
 const download = async () => {
@@ -418,9 +415,9 @@ const download = async () => {
 };
 ```
 
-![Metamask signing dialog to prove a the customer's address](./sign_download.png "Metamask signing dialog to prove a the customer's address")
+![Metamask signing dialog to prove the customer's address](./sign_download.png "Metamask signing dialog to prove the customer's address")
 
-On the backend's `download` route we can recover the signer's address because we also know how to assemble the message. If that address matches a fulfilled `PaymentRequest` on our database, we know that we can permit access to the requested resource:
+The backend's `download` route recovers the signer's address because by assembling the message in the same way the user did before. If the recovered address matches a fulfilled `PaymentRequest` on our database, we know that we can permit access to the requested ebook resource:
 
 ```typescript
 // server.ts
@@ -449,8 +446,12 @@ app.post(
 );
 ```
 
-Note, that the interaction presented here is still not unfailable. Of course anyone who knows a valid signature for a purchased item can now just successfully call the download route. To improve the route's security you could create the nonce server side to have the customer sign and prove it. Another note: since users themselves cannot make any sense of the garbled hex code they're supposed to sign, they cannot know, if we're going to trick them into signing another valid transaction that might compromise their account. We're avoiding this attack vector by making use of web's `eth.personal.sign` method but it might be nicer to display the message to be signed in a human friendly way. That's what [EIP-712](https://eips.ethereum.org/EIPS/eip-712) is trying to achieve, a standard that's [already supported by Metask](https://docs.metamask.io/guide/signing-data.html).
+The proof of control presented here is still not unfailable, though: Anyone who knows a valid signature for a purchased item can now just successfully call the download route. The final fix would be to create the random message nonce on the backend first and have the customer sign and prove it. Since users cannot make any sense of the garbled hex code they're supposed to sign, they cannot know if we're going to trick them into signing another valid transaction that might compromise their account. Although we've avoided this attack vector by making use of web3's `eth.personal.sign` method it might be nicer to display the message to be signed in a human friendly way. That's what [EIP-712](https://eips.ethereum.org/EIPS/eip-712) achieving, a standard that's [already supported by Metask](https://docs.metamask.io/guide/signing-data.html).
 
 ## Conclusion and Outlook
 
-Accepting payments on ecommerce websites never has been an easy task for developers. While the web3 ecosystem allows stores to accept digital currencies, the availability of service independent plugin solutions is still low. This article demonstrated only one safe way to request and receive payments but you can take it further from here. Gas costs for ERC20 transfers on Ethereum mainnet are exceeding our example's book prices so for low priced items one must use more gas friendly environments like [Gnosis Chain](https://www.xdaichain.com/) (their "native" Ether currency is the DAI stablecoin, so one doesn't have to worry about stablecoin transfers at all) or [Arbitrum](https://arbitrum.io/). You could think of extending backend with more advanced payment requests or cart checkouts or you could use DEXes to swap any incoming ERC20 tokens into your preferred currency. However, the promise of web3 holds: it allows direct monetary transaction without any middlemen and might be a great option to add for crypto savvy customers.
+Accepting payments on ecommerce websites never has been an easy task for developers. While the web3 ecosystem allows storefronts to accept digital currencies, the availability of service independent plugin solutions is still low. This article demonstrated a safe way to request and receive crypto payments.
+
+There's room to take the approach further from here. Gas costs for ERC20 transfers on Ethereum mainnet are exceeding our example's book prices by far. So crypt payments for low priced items would mostly make sense on gas friendly environments like [Gnosis Chain](https://www.xdaichain.com/) (their "native" Ether currency is DAI, so you wouldn't even have to worry about stablecoin transfers here) or [Arbitrum](https://arbitrum.io/). You could also think of extending the backend with cart checkouts or use DEXes to swap any incoming ERC20 tokens into your preferred currency.
+
+After all, the promise of web3 holds: it allows direct monetary transactions without any middlemen and adds great value to online stores who want to engage their crypto savvy customers.

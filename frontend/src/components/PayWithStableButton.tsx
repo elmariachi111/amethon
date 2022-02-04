@@ -4,7 +4,7 @@ import Web3 from 'web3';
 import { TransactionReceipt } from 'web3-core';
 import { PayablePaymentRequest } from '../types';
 import IERC20ABI from '../abi/IERC20.json';
-import ReceiverAbi from '../abi/PaymentReceiver.json';
+import PaymentReceiverAbi from '../abi/PaymentReceiver.json';
 import { AbiItem } from 'web3-utils';
 import { Contract } from 'web3-eth-contract';
 import BN from 'bn.js';
@@ -50,7 +50,7 @@ export const PayWithStableButton = (props: {
 
   const pay = useCallback(async () => {
     if (!web3 || !account) return;
-    const contract = new web3.eth.Contract(ReceiverAbi as AbiItem[], paymentRequest.receiver.options.address)
+    const contract = new web3.eth.Contract(PaymentReceiverAbi as AbiItem[], paymentRequest.receiver.options.address)
     const tx = await contract.methods.payWithErc20(process.env.REACT_APP_STABLECOINS, weiPrice, paymentRequest.idUint256).send({
       from: account
     })

@@ -47,7 +47,7 @@ interface PaymentReceivedEvent {
       valInUSDCents = parseFloat(decimalValue) * ETH_USD_CENT;
     } else {
       if (!ACCEPTED_USD_TOKENS.includes(args.token)) {
-        return console.error("payments of that token not supported");
+        return console.error("payments of that token are not supported");
       }
       valInUSDCents = parseFloat(decimalValue) * 100;
     }
