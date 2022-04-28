@@ -71,7 +71,7 @@ interface PaymentReceivedEvent {
     fromBlock: "0",
   });
 
-  console.log(`listening on ${paymentReceiver.options.address}`);
+  console.log(`listening for payment events on contract ${paymentReceiver.options.address}`);
 
   emitter.on("data", (evt: PaymentReceivedEvent) => {
     try {
