@@ -22,10 +22,9 @@ export const PayButton = (props: {
       value: weiPrice, 
       data: paymentRequest.idUint256
     });
-    tx.on("confirmation", (confirmationNumber, receipt) => {
-      if (confirmationNumber < 2) onConfirmed(receipt);
-    });
-  }, [web3, account]);
+    const receipt = await tx;
+    onConfirmed(receipt)
+  }, [web3, account, onConfirmed, paymentRequest, weiPrice]);
 
   return (
    <button className="btn-primary" onClick={() => pay()}>

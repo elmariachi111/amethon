@@ -1,5 +1,5 @@
 import { useWeb3React } from '@web3-react/core';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Web3 from 'web3';
 import { TransactionReceipt } from 'web3-core';
 import { PayablePaymentRequest } from '../types';
@@ -16,7 +16,7 @@ export const PayWithStableButton = (props: {
   const {paymentRequest, onConfirmed} = props;
   const {account, library: web3} = useWeb3React<Web3>();
 
-  const weiPrice =  new BN(Web3.utils.toWei(`${paymentRequest.priceInUSDCent / 100}`));
+  const weiPrice =  useMemo(() =>new BN(Web3.utils.toWei(`${paymentRequest.priceInUSDCent / 100}`)), [paymentRequest]);
 
   const [balance, setBalance] = useState<BN>()
   const [allowance, setAllowance] = useState<BN>()
@@ -36,7 +36,7 @@ export const PayWithStableButton = (props: {
         setCoin(contract);
       }
     })();
-  }, [account, web3]);
+  }, [account, web3, onConfirmed, paymentRequest]);
 
   const approve = async (price: BN) => {
     if (!coin || !account) return;
@@ -45,17 +45,17 @@ export const PayWithStableButton = (props: {
       from: account
     });
     setAllowance(price);
-    console.log(appr);
   }
 
   const pay = useCallback(async () => {
     if (!web3 || !account) return;
     const contract = new web3.eth.Contract(PaymentReceiverAbi as AbiItem[], paymentRequest.receiver.options.address)
-    const tx = await contract.methods.payWithErc20(process.env.REACT_APP_STABLECOINS, weiPrice, paymentRequest.idUint256).send({
+    const tx = contract.methods.payWithErc20(process.env.REACT_APP_STABLECOINS, weiPrice, paymentRequest.idUint256).send({
       from: account
     })
-    onConfirmed(tx);
-  }, [web3, account]);
+    const receipt = await tx;
+    onConfirmed(receipt);
+  }, [web3, account, onConfirmed, paymentRequest, weiPrice]);
 
   return (<div className="flex">
   {allowance?.lt(weiPrice) 
